@@ -2,7 +2,7 @@
 #include <iostream>
 #include <algorithm>
 
-YOLO_Darknet::YOLO_Darknet(char *cfg, char *weight, int *threshold) : img_width(320), img_height(240)
+YOLO_Darknet::YOLO_Darknet(char *cfg, char *weight, int *threshold) : predict_ball(0), predict_goalpost(0), img_width(320), img_height(240)
 {
 	setGPUMode(0);
 	net = parse_network_cfg(cfg);
@@ -69,7 +69,7 @@ void YOLO_Darknet::convert_detection(float *predictions, int w, int h, int only_
 	}
 }
 
-struct yolo_darknet YOLO_Darknet::copyProbData(float prob, box b)
+struct yolo_predict_data YOLO_Darknet::copyProbData(float prob, box b)
 {
 	struct yolo_predict_data d;
 	d.prob = prob;
@@ -122,7 +122,7 @@ int YOLO_Darknet::maxIndexVec(std::vector<float> &vec)
 	return std::max_element(vec.begin(), vec.end()) - vec.begin();
 }
 
-bool YOLO_Darknet::isOverlap(struct yolo_predict_data &box1, struct yolo_predict_data &box2)
+bool YOLO_Darknet::isOverlap(struct yolo_predict_data box1, struct yolo_predict_data box2)
 {
 	const float X1 = std::max(box1.x-(box1.w/2), box2.x-(box2.w/2));
 	const float Y1 = std::max(box1.y-(box1.h/2), box2.y-(box2.h/2));
@@ -143,7 +143,7 @@ void YOLO_Darknet::getObjectPos(int label, int index, int &w, int &h, int &x, in
 	} else if(label == LABEL_GOALPOST) {
 		obj = predict_goalpost;
 	}
-	if(obj.size() && index < obj.size()) {
+	if(!obj.empty() && index < obj.size()) {
 		score = obj[index].prob;
 		x = (int)(obj[index].x * img_width);
 		y = (int)(obj[index].y * img_height);
@@ -158,14 +158,17 @@ void YOLO_Darknet::getObjectPos(int label, int index, int &w, int &h, int &x, in
 	}
 }
 
-std::vector<struct yolo_predict_data> YOLO_Darknet::getBoundingBoxes(int label)
+void YOLO_Darknet::getBoundingBoxes(std::vector<struct yolo_predict_data> &data, int label)
 {
 	if(label == LABEL_BALL) {
-		return predict_ball;
+		for(auto p: predict_ball)
+			data.push_back(p);
 	} else if(label == LABEL_GOALPOST) {
-		return predict_goalpost;
+		for(auto p: predict_goalpost)
+			data.push_back(p);
+	} else {
+		data.clear();
 	}
-	std::vector<struct yolo_predict_data> ret;
-	return ret;
+	return;
 }
 

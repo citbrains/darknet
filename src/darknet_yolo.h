@@ -4,7 +4,7 @@
 #include "cuda.h"
 #endif //GPU
 #ifdef __cplusplus
-//extern "C" {
+extern "C" {
 #endif //__cplusplus
 #include "parser.h"
 #include "utils.h"
@@ -17,7 +17,7 @@
 #include "image.h"
 #include "network.h"
 #ifdef __cplusplus
-//}
+}
 #endif //__cplusplus
 #include <opencv2/opencv.hpp>
 #include <vector>
@@ -42,7 +42,7 @@ public:
 	~YOLO_Darknet();
 	void detectObjectsUsingYOLO(IplImage *);
 	void getObjectPos(int, int, int &, int &, int &, int &, float &);
-	std::vector<struct yolo_predict_data> getBoundingBoxes(int);
+	void getBoundingBoxes(std::vector<struct yolo_predict_data> &, int);
 
 private:
 	std::vector<float> thresh;
@@ -54,10 +54,10 @@ private:
 	int img_width, img_height;
 	float nms;
 	void setGPUMode(int);
+	struct yolo_predict_data copyProbData(float, box);
 	void convert_detection(float *, int, int, int);
 	void getProbs(void);
-	bool isOverlap(struct yolo_predict_data &, struct yolo_predict_data &);
+	bool isOverlap(struct yolo_predict_data, struct yolo_predict_data);
 	int maxIndexVec(std::vector<float> &);
-	struct yolo_predict_data copyProbData(float, box);
 };
 
