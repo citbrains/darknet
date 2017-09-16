@@ -41,7 +41,7 @@ public:
 	YOLO_Darknet(char *, char *, int *);
 	~YOLO_Darknet();
 	void detectObjectsUsingYOLO(IplImage *);
-	void getObjectPos(int, int, int &, int &, int &, int &, float &);
+	int getObjectPos(int, int, int &, int &, int &, int &, float &);
 	void getBoundingBoxes(std::vector<struct yolo_predict_data> &, int);
 
 private:

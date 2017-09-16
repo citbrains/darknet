@@ -24,7 +24,7 @@ struct yolo_predict_data
 extern void yolo_init(char *, char *, int *);
 extern void yolo_fina(void);
 extern void yolo_predict(IplImage *);
-extern void yolo_get_object(int, int, int &, int &, int &, int &, float &);
+extern int  yolo_get_object(int, int, int &, int &, int &, int &, float &);
 extern void yolo_get_bounding_boxes(std::vector<struct yolo_predict_data> &, int);
 
 #endif // __CIT_YOLO_H__

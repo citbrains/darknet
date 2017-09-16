@@ -22,10 +22,9 @@ void yolo_predict(IplImage *img)
 	return;
 }
 
-void yolo_get_object(int label, int index, int &weight, int &height, int &x, int &y, float &score)
+int yolo_get_object(int label, int index, int &weight, int &height, int &x, int &y, float &score)
 {
-	yolo->getObjectPos(label, index, x, y, weight, height, score);
-	return;
+	return yolo->getObjectPos(label, index, x, y, weight, height, score);
 }
 
 void yolo_get_bounding_boxes(std::vector<struct yolo_predict_data> &data, int object_type)

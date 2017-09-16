@@ -135,7 +135,7 @@ bool YOLO_Darknet::isOverlap(struct yolo_predict_data box1, struct yolo_predict_
 	}
 }
 
-void YOLO_Darknet::getObjectPos(int label, int index, int &w, int &h, int &x, int &y, float &score)
+int YOLO_Darknet::getObjectPos(int label, int index, int &w, int &h, int &x, int &y, float &score)
 {
 	std::vector<struct yolo_predict_data> obj = predict_ball;
 	if(label == LABEL_BALL) {
@@ -149,12 +149,14 @@ void YOLO_Darknet::getObjectPos(int label, int index, int &w, int &h, int &x, in
 		y = (int)(obj[index].y * img_height);
 		w = (int)(obj[index].w * img_width);
 		h = (int)(obj[index].h * img_height);
+		return 0;
 	} else {
 		score = 0.0;
 		x = -1;
 		y = -1;
 		w = -1;
 		h = -1;
+		return 1;
 	}
 }
 
