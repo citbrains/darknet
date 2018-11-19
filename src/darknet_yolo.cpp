@@ -174,3 +174,7 @@ void YOLO_Darknet::getBoundingBoxes(std::vector<struct yolo_predict_data> &data,
 	return;
 }
 
+void YOLO_Darknet::setThreshold(int labelnum, int threshold)
+{
+    this->thresh[labelnum] = (float)threshold / 100.0;
+}

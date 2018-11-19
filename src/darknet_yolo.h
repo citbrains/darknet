@@ -43,6 +43,7 @@ public:
 	void detectObjectsUsingYOLO(IplImage *);
 	int getObjectPos(int, int, int &, int &, int &, int &, float &);
 	void getBoundingBoxes(std::vector<struct yolo_predict_data> &, int);
+    void setThreshold(int labelnum, int threshold);
 
 private:
 	std::vector<float> thresh;
