@@ -5,12 +5,10 @@
 YOLO_Darknet::YOLO_Darknet(char *cfg, char *weight, int *threshold) : predict_ball(0), predict_goalpost(0), img_width(320), img_height(240)
 {
 	setGPUMode(0);
-	net = parse_network_cfg(cfg);
-	if(weight) {
-		load_weights(&net, weight);
-	}
-	resize = cvCreateImage(cvSize(448, 448), 8, 3);
-	dl = net.layers[net.n-1];
+    net = load_network(cfg,weight,0);
+    set_batch_network(net,1);
+	resize = cvCreateImage(cvSize(416, 416), 8, 3);
+	dl = net->layers[net->n-1];
 	boxes.resize(dl.side * dl.side * dl.n);
 	probs.resize(dl.side * dl.side * dl.n);
 	for(int i = 0; i < dl.side * dl.side * dl.n; i++)
@@ -24,49 +22,49 @@ YOLO_Darknet::~YOLO_Darknet()
 {
 }
 
+static void ipl_into_image(IplImage *src, image im)
+{
+    unsigned char *data = (unsigned char *)src->imageData;
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    int step = src->widthStep;
+
+    for(int i = 0; i < h; i++){
+        for(int k = 0; k < c; k++){
+            for(int j = 0; j < w; j++){
+                im.data[k * w * h + i * w + j] = data[i * step + j * c + k] / 255.0;
+            }
+        }
+    }
+}
+
+static image ipl_to_image(IplImage *src)
+{
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    image out = make_image(w, h, c);
+    ipl_into_image(src, out);
+    return out;
+}
+
 void YOLO_Darknet::detectObjectsUsingYOLO(IplImage *src)
 {
 	this->img_width = src->width;
 	this->img_height = src->height;
-	set_batch_network(&net, 1);
 	cvResize(src, resize);
 	cvCvtColor(resize, resize, CV_YCrCb2BGR);
 	image im = ipl_to_image(resize);
-	float *X = im.data;
-	float *predictions = network_predict(net, X);
-	convert_detection(predictions, 1, 1, 0);
-	getProbs();
+    image sized = letterbox_image(im, net->w, net->h);
+	float *X = sized.data;
+	network_predict(net, X);
+    int nboxes = 0;
+    detection *dets = get_network_boxes(net, im.w, im.h, 0.0, 0.5, 0, 1, &nboxes); // hier_thresh(default 0.5)
+	getProbs(dets,nboxes);
 	free_image(im);
-}
-
-void YOLO_Darknet::convert_detection(float *predictions, int w, int h, int only_objectness)
-{
-	const int classes = dl.classes;
-	const int num = dl.n;
-	const int square = dl.sqrt;
-	const int side = dl.side;
-	for(int i = 0; i < side * side; i++) {
-		const int row = i / side;
-		const int col = i % side;
-		for(int n = 0; n < num; n++) {
-			const int index = i * num + n;
-			const int p_index = side * side * classes + i * num + n;
-			const float scale = predictions[p_index];
-			const int box_index = side * side * (classes + num) + (i * num + n) * 4;
-			boxes[index].x = (predictions[box_index + 0] + col) / side * w;
-			boxes[index].y = (predictions[box_index + 1] + row) / side * h;
-			boxes[index].w = pow(predictions[box_index + 2], (square?2:1)) * w;
-			boxes[index].h = pow(predictions[box_index + 3], (square?2:1)) * h;
-			for(int j = 0; j < classes; j++) {
-				const int class_index = i * classes;
-				const float prob = scale * predictions[class_index+j];
-				probs[index][j] = prob;
-			}
-			if(only_objectness) {
-				probs[index][0] = scale;
-			}
-		}
-	}
+    free_image(sized);
+    free_detections(dets,nboxes);
 }
 
 struct yolo_predict_data YOLO_Darknet::copyProbData(float prob, box b)
@@ -80,21 +78,19 @@ struct yolo_predict_data YOLO_Darknet::copyProbData(float prob, box b)
 	return d;
 }
 
-void YOLO_Darknet::getProbs(void)
+void YOLO_Darknet::getProbs(detection *dets, int nbox)
 {
-	const int num = dl.side * dl.side * dl.n;
+	const int num = nbox;
 	predict_ball.clear();
 	predict_goalpost.clear();
 	for(int i = 0; i < num; i++) {
-		const int cls = maxIndexVec(probs[i]);
-		const float prob = probs[i][cls];
-		if((prob > thresh[LABEL_BALL]) && (cls == LABEL_BALL)) {
-			const struct yolo_predict_data pr = copyProbData(prob, boxes[i]);
+		if(dets[i].prob[LABEL_BALL] > thresh[LABEL_BALL]) {
+			const struct yolo_predict_data pr = copyProbData(dets[i].prob[LABEL_BALL], dets[i].bbox);
 			predict_ball.push_back(pr);
 			std::sort(predict_ball.begin(), predict_ball.end(), SORT_PROB_IN_DESCENDING_ORDER());
 		}
-		if((prob > thresh[LABEL_GOALPOST]) && (cls == LABEL_GOALPOST)){
-			const struct yolo_predict_data pr = copyProbData(prob, boxes[i]);
+		if(dets[i].prob[LABEL_GOALPOST] > thresh[LABEL_GOALPOST]){
+			const struct yolo_predict_data pr = copyProbData(dets[i].prob[LABEL_GOALPOST], dets[i].bbox);
 			bool ret = false;
 			for(int n = 0; n < predict_goalpost.size(); n++) {
 				ret |= isOverlap(pr, predict_goalpost[n]);
@@ -116,10 +112,18 @@ void YOLO_Darknet::setGPUMode(int gpu_index)
 #endif
 }
 
-int YOLO_Darknet::maxIndexVec(std::vector<float> &vec)
+int YOLO_Darknet::maxIndexVec(float *vec)
 {
-	if(vec.size() == 0) return 0;
-	return std::max_element(vec.begin(), vec.end()) - vec.begin();
+    int idx=-1;
+    float max_elem = 0.0;
+    for(int i=0;i<dl.classes;i++)
+    {
+        if(vec[idx] > max_elem){
+            max_elem = vec[idx];
+            idx = i;
+        }
+    }
+	return idx;
 }
 
 bool YOLO_Darknet::isOverlap(struct yolo_predict_data box1, struct yolo_predict_data box2)

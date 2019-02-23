@@ -22,6 +22,7 @@ extern "C" {
 #include <opencv2/opencv.hpp>
 #include <vector>
 
+#include "darknet.h"
 #include "cit_yolo.h"
 
 extern float *network_predict(network, float *);
@@ -50,15 +51,14 @@ private:
 	std::vector< std::vector<float> > probs;
 	std::vector<box> boxes;
 	detection_layer dl;
-	network net;
+	network *net;
 	IplImage *resize;
 	int img_width, img_height;
 	float nms;
 	void setGPUMode(int);
 	struct yolo_predict_data copyProbData(float, box);
-	void convert_detection(float *, int, int, int);
-	void getProbs(void);
+	void getProbs(detection *dets, int nbox);
 	bool isOverlap(struct yolo_predict_data, struct yolo_predict_data);
-	int maxIndexVec(std::vector<float> &);
+	int maxIndexVec(float *vec);
 };
 
