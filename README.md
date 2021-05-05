@@ -8,13 +8,14 @@ branchをdarknet_v3に変更する．
 
 Makefileを以下のよう変更する．
 
-GPUあり
+* GPUあり
 ```shell
 GPU=1
 CUDNN=0
 ```
+CUDNN=1でビルドできるなら，それが望ましい．
 
-GPUなし
+* GPUなし
 ```shell
 GPU=0
 CUDNN=0
